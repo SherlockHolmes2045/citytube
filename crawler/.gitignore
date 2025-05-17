@@ -1,0 +1,11 @@
+# Dependencies
+node_modules
+
+# Environment varibales
+.env*
+!.env*.example
+
+# Code coverage
+coverage
+
+.idea
