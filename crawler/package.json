@@ -1,16 +1,19 @@
 {
   "name": "citytube-node",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "client.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node crawler.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "dotenv": "^16.5.0",
     "input": "^1.0.1",
+    "node-cron": "^4.0.5",
     "telegram": "^2.26.22"
   }
 }
