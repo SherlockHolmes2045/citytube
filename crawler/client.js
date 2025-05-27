@@ -4,12 +4,12 @@ const input = require("input");
 const fs = require("fs");
 const path = require("path");
 const {log} = require("./logger");
-
+const minioClient = require('./minioClient');
 require("dotenv").config();
 
 const apiId = parseInt(process.env.TELEGRAM_API_ID);
 const apiHash = process.env.TELEGRAM_API_HASH;
-const SESSION_FILE = path.join(__dirname, "../session.txt");
+const SESSION_FILE = path.join(__dirname, "./session.txt");
 
 // Load saved session if available
 let savedSession = "";
@@ -34,9 +34,13 @@ async function createClient() {
         // Save session to file
         fs.writeFileSync(SESSION_FILE, client.session.save(), "utf8");
         log("✅ New session created and saved.");
+        await ensureBucket(process.env.AUDIO_BUCKET_NAME);
+        await ensureBucket(process.env.COVER_BUCKET_NAME);
     } else {
         await client.connect();
         log("🔁 Reused saved session. Connection successful.");
+        await ensureBucket(process.env.AUDIO_BUCKET_NAME);
+        await ensureBucket(process.env.COVER_BUCKET_NAME);
     }
 
     return client;
@@ -45,5 +49,18 @@ async function createClient() {
         throw err;
     }
 }
+
+
+
+async function ensureBucket(bucketName) {
+    const exists = await minioClient.bucketExists(bucketName);
+    if (!exists) {
+        await minioClient.makeBucket(bucketName, 'us-east-1');
+        log(`✅ Bucket "${bucketName}" created`);
+    } else {
+        log(`🔁 Bucket "${bucketName}" already exists`);
+    }
+}
+
 
 module.exports = { createClient };

@@ -1,15 +1,27 @@
+const Artist = require("./artist");
+
 class Album {
     /**
      * @param {string?} name - The name of the album
-     * @param {string?} artist - The artist name
+     * @param {string?} musicBrainzName - The name of the album from musicBrainz Api
+     * @param {string?} musicBrainzId - The id of the album from musicBrainz Api
+     * @param {Artist?} artist - The artist name
      * @param {Message?} cover - The Telegram Message object for the album cover
-     * @param {Message[]} titles - An array of Telegram Message objects representing audio tracks
+     * @param {Track[]} tracks - An array of Telegram Message objects representing audio tracks
+     * @param {int} releaseDate - The album release date
+     * @param {int} messageId - The id of the message from Telegram
+     * @param {String[]} genres - The id of the message from Telegram
      */
-    constructor(name, artist, cover, titles = []) {
+    constructor(name, cover, releaseDate,messageId,musicBrainzName,musicBrainzId,artist = new Artist(''), tracks = [], genres= []) {
         this.name = name;
         this.artist = artist;
         this.cover = cover;     // This is a Telegram Message object containing the image
-        this.titles = titles;   // This is a list of Telegram Message objects (audio)
+        this.tracks = tracks;   // This is a list of Telegram Message objects (audio)
+        this.releaseDate = releaseDate;
+        this.messageId = messageId;
+        this.musicBrainzName = musicBrainzName;
+        this.musicBrainzId = musicBrainzId;
+        this.genres = genres;
     }
 
     /**

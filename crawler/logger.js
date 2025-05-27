@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const logFile = path.join(__dirname, "../logs/crawler.log");
+const logFile = path.join(__dirname, "./logs/crawler.log");
 
 // Ensure the logs folder exists
 if (!fs.existsSync(path.dirname(logFile))) {

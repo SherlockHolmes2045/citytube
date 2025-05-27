@@ -13,6 +13,8 @@
   "dependencies": {
     "dotenv": "^16.5.0",
     "input": "^1.0.1",
+    "minio": "^8.0.5",
+    "musicbrainz-api": "^0.25.0",
     "node-cron": "^4.0.5",
     "telegram": "^2.26.22"
   }
