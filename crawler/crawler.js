@@ -1,234 +1,128 @@
-
-const {createClient} = require("./client");
-const {log} = require("./logger");
+const { createClient } = require("./client");
+const { log } = require("./logger");
 const Album = require("./album");
 const Artist = require("./artist");
 const Track = require("./track");
 const minioClient = require("./minioClient");
 require("dotenv").config();
 const path = require("path");
+const {searchArtistMetadata,searchAlbumMetadata,searchSong} = require("./musicbrainz");
+const {message} = require("telegram/client");
 
 (async () => {
     const client = await createClient();
     const channelName = "https://t.me/City_Pop";
-
     log(`🚀 Starting crawl of channel: ${channelName}`);
 
     const channel = await client.getEntity(channelName);
-    let albums = [];
-    let currentAlbum = new Album(null,null,null,[]);
-    for await (const message of client.iterMessages(channel, { reverse: true,limit: 35 })) {
+    const albums = [];
+    let currentAlbum = new Album(null, null, null, null,null,null,null,[]);
+
+    for await (const message of client.iterMessages(channel, { reverse: true, limit: 35 })) {
         if (!message.message && !message.media) continue;
 
         const baseLog = `🟡 [${message.id}] ${message.date}`;
-
-        // Check for media
         if (message.media) {
             const mediaType = message.media.className;
 
-            switch (mediaType) {
-                case "MessageMediaPhoto": {
-                    log(`${baseLog} - 📸 Photo message`);
-                    // You can now download/save metadata or process it
-                    if(currentAlbum.tracks.length === 0){
-                        currentAlbum = new Album(null,null,null,null)
-                    }else{
-                        albums.push(currentAlbum)
-                        currentAlbum = new Album(null,null,null,null)
-                    }
-
-                    currentAlbum.name = message.message.split('-')[1].trim();
-                    const match = currentAlbum.name.match(/^(.*?)\s*\((\d{4})\)$/);
-
-                    if (match) {
-                        currentAlbum.name = match[1].trim();
-                        currentAlbum.releaseDate = parseInt(match[2]);
-
-                    }
-
-                    currentAlbum.cover = message;
-                    currentAlbum.messageId = message.id;
-
-                    currentAlbum.artist = await searchArtistMetadata(message.message.split('-')[0].trim());
-                    const albumMetadata = await searchAlbumMetadata(currentAlbum.artist.musicBrainzId, currentAlbum.name);
-                    currentAlbum.musicBrainzId = albumMetadata.id;
-                    currentAlbum.musicBrainzName = albumMetadata.name;
-                    currentAlbum.releaseDate = new Date(albumMetadata.releaseDate);
-                    currentAlbum.genres = albumMetadata.genres;
-
-                    const buffer = await client.downloadMedia(message.media);
-
-                    const uploadResult = await uploadToMinio(process.env.COVER_BUCKET_NAME, `/covers/${message.id}.jpg`,buffer,'image/jpeg');
-                    currentAlbum.cover = uploadResult.etag;
-                    log(`Saved media to: ${uploadResult.etag}`);
-
-
-                    break;
+            if (mediaType === "MessageMediaPhoto") {
+                if (currentAlbum.tracks.length > 0) {
+                    albums.push(currentAlbum);
                 }
-
-                case "MessageMediaDocument": {
-                    const document = message.media.document;
-
-                    // Look for audio mime type
-                    const mimeType = document.mimeType;
-                    const isAudio = mimeType && mimeType.startsWith("audio");
-
-                    if (isAudio) {
-                        const fileNameAttr = document.attributes.find(
-                            (attr) => attr.className === "DocumentAttributeFilename"
-                        );
-                        const title = message.message.split("-")[1].split('\n')[0].trim();
-                        const songResult = await searchSong(title,currentAlbum.artist.musicBrainzName);
-
-                        let extension = "";
-
-                        if (fileNameAttr) {
-                            extension = path.extname(fileNameAttr.fileName); // e.g. '.mp3'
-                        } else if (document.mimeType) {
-                            // Fallback: Map common mime types to extensions
-                            const mime = document.mimeType;
-                            const mimeMap = {
-                                "audio/mpeg": ".mp3",
-                                "audio/x-wav": ".wav",
-                                "audio/ogg": ".ogg",
-                                "image/jpeg": ".jpg",
-                                "image/png": ".png",
-                                "video/mp4": ".mp4",
-                            };
-                            extension = mimeMap[mime] || "";
-                        }
-
-                        log(`${baseLog} - 🎵 Audio: ${title}`);
-                        // TODO: Download or store metadata in DB
-
-                        const buffer = await client.downloadMedia(message.media);
+                    currentAlbum = new Album(null, null, null, null,null,null,null,[]);
 
 
-                        const uploadResult = await uploadToMinio(process.env.AUDIO_BUCKET_NAME, `/audios/${message.id}${extension}`,buffer,document.mimeType);
-                        log(`Saved media to: ${uploadResult.etag}`);
-                        currentAlbum.tracks.push(new Track(title,songResult.id,songResult.title,uploadResult.etag,message.id.toString()));
-                    } else {
-                        log(`${baseLog} - 📎 Other document: ${mimeType}`);
-                    }
-
-                    break;
-
-                }
-                default:
-                    log(`${baseLog} - 📦 Unknown media type: ${mediaType}`);
+                currentAlbum = await processPhotoMessage(message, currentAlbum, albums, client);
+            } else if (mediaType === "MessageMediaDocument") {
+                let track = await processDocumentMessage(message, currentAlbum, client);
+                currentAlbum.tracks.push(track);
+            } else {
+                log(`${baseLog} - 📦 Unknown media type: ${mediaType}`);
             }
-        } else if (message.message) {
-            // No media, just text
-            currentAlbum = new Album(null,null,null,[]);
+        } else {
+            currentAlbum = new Album(null, null, null, null,null,null,null,[]);
             log(`${baseLog} - 📝 Text: ${message.message}`);
         }
     }
 
-    log(`✅ Crawling complete`);
-    //console.log(albums);
+    const albumExist = albums.find(album => album.messageId === currentAlbum.messageId);
+    if(!albumExist) {
+        albums.push(currentAlbum);
+    }
 
+    log(`✅ Crawling complete`);
+    console.log(albums);
     await client.disconnect();
 })();
 
-/**
- * Search MusicBrainz by artist name and optional album title
- * @param {string} artistName
- * @param {string|null} albumName
- * @returns {Promise<Artist>} result object containing artist and optionally release group
- */
-async function searchArtistMetadata(artistName, albumName = null) {
+async function processPhotoMessage(message, currentAlbum, albums, client) {
+    const baseLog = `🟡 [${message.id}] ${message.date}`;
 
-    const {MusicBrainzApi} = await import('musicbrainz-api');
-    const mbApi = new MusicBrainzApi({
-        appName: process.env.MUSICBRAINZ_APP_NAME,
-        appVersion: process.env.MUSICBRAINZ_APP_VERSION,
-        appContactInfo: process.env.MUSICBRAINZ_APP_CONTACT
-    });
 
-    // Step 1: Search artist
-    const artistSearch = await mbApi.search('artist', {
-        query: artistName,
-        country: 'JP'
-    });
+    const [artistName, albumRaw] = message.message.split("-");
+    const albumName = albumRaw.trim();
+    const match = albumName.match(/^(.*?)\s*\((\d{4})\)$/);
 
-    const artist = artistSearch.artists.find(a => a.country === 'JP') || artistSearch.artists[0];
+    currentAlbum.name = match ? match[1].trim() : albumName;
+    currentAlbum.releaseDate = match ? parseInt(match[2]) : null;
+    currentAlbum.cover = message;
+    currentAlbum.messageId = message.id;
 
-    if (!artist) {
-        return null;
-    }
+    currentAlbum.artist = await searchArtistMetadata(artistName.trim());
+    const albumMetadata = await searchAlbumMetadata(currentAlbum.artist.musicBrainzId, currentAlbum.name);
 
-    const genres  = artist.tags.map(tag => tag.name);
+    currentAlbum.musicBrainzId = albumMetadata?.id;
+    currentAlbum.musicBrainzName = albumMetadata?.name;
+    currentAlbum.releaseDate = albumMetadata?.releaseDate ? new Date(albumMetadata.releaseDate) : currentAlbum.releaseDate;
+    currentAlbum.genres = albumMetadata?.genres || [];
 
-    const sortNames = artist.aliases.map(alias => alias['sort-name']);
-    const names = artist.aliases.map(alias => alias.name);
-    return new Artist(artistName,artist.id, artist.gender,artist.name,artist['sort-name'],genres,[...sortNames,...names]);
+    const buffer = await client.downloadMedia(message.media);
+    const uploadResult = await uploadToMinio(process.env.COVER_BUCKET_NAME, `/covers/${message.id}.jpg`, buffer, 'image/jpeg');
+    currentAlbum.cover = uploadResult.etag;
+    log(`Saved cover to: ${uploadResult.etag}`);
+
+    return currentAlbum;
 }
 
+async function processDocumentMessage(message, currentAlbum, client) {
+    const baseLog = `🟡 [${message.id}] ${message.date}`;
+    const document = message.media.document;
+    const mimeType = document.mimeType;
 
-/**
- * Search MusicBrainz by artist name and optional album title
- * @param {string} artistId
- * @param {string} albumName
- * @returns {Promise<Object>} result object containing artist and optionally release group
- */
-async function searchAlbumMetadata(artistId, albumName = null) {
-
-    const {MusicBrainzApi} = await import('musicbrainz-api');
-    const mbApi = new MusicBrainzApi({
-        appName: process.env.MUSICBRAINZ_APP_NAME,
-        appVersion: process.env.MUSICBRAINZ_APP_VERSION,
-        appContactInfo: process.env.MUSICBRAINZ_APP_CONTACT
-    });
-
-
-    const albumSearch = await mbApi.search('release-group', {
-        query: `release:${albumName} AND arid:${artistId}`,
-        limit: 1
-    });
-
-    const album = albumSearch['release-groups'][0];
-
-
-    if (!album) {
-        return null;
+    if (!mimeType?.startsWith("audio")) {
+        return log(`${baseLog} - 📎 Other document: ${mimeType}`);
     }
 
-    const genres = album.tags.map(tag => tag.name);
+    const fileNameAttr = document.attributes.find(attr => attr.className === "DocumentAttributeFilename");
+    const title = message.message.split("-")[1].split('\n')[0].trim();
+    const songResult = await searchSong(title, currentAlbum.artist.musicBrainzName);
 
-    return {
-        id: album.id,
-        name: album.title,
-        releaseDate: album['first-release-date'],
-        genres
+    const extension = getExtension(fileNameAttr?.fileName, mimeType);
+    const buffer = await client.downloadMedia(message.media);
+    const uploadResult = await uploadToMinio(process.env.AUDIO_BUCKET_NAME, `/audios/${message.id}${extension}`, buffer, mimeType);
+
+    log(`Saved audio to: ${uploadResult.etag}`);
+    return new Track(title, songResult?.id, songResult?.title, uploadResult.etag, message.id.toString());
+}
+
+function getExtension(fileName, mimeType) {
+    if (fileName) return path.extname(fileName);
+
+    const mimeMap = {
+        "audio/mpeg": ".mp3",
+        "audio/x-wav": ".wav",
+        "audio/ogg": ".ogg",
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "video/mp4": ".mp4",
     };
+
+    return mimeMap[mimeType] || "";
 }
 
-
-
-/**
- * Search for a recording by title and artist ID
- * @param {string} title - The title of the song
- * @param {string} artistName - The MusicBrainz artist ID (MBID)
- */
-async function searchSong(title,artistName) {
-
-    const {MusicBrainzApi} = await import('musicbrainz-api');
-    const mbApi = new MusicBrainzApi({
-        appName: process.env.MUSICBRAINZ_APP_NAME,
-        appVersion: process.env.MUSICBRAINZ_APP_VERSION,
-        appContactInfo: process.env.MUSICBRAINZ_APP_CONTACT
-    });
-
-
-    const result = await mbApi.search('recording', {
-        query: `recording:"${title}" AND artist:${artistName}`,
-    });
-
-    return result.recordings[0] || [];
-}
 
 async function uploadToMinio(bucket, objectName, buffer, contentType) {
-    return minioClient.putObject(bucket, objectName, buffer,undefined, {
+    return minioClient.putObject(bucket, objectName, buffer, undefined, {
         'Content-Type': contentType,
     });
 }

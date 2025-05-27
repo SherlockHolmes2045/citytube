@@ -6,7 +6,7 @@ class Album {
      * @param {string?} musicBrainzName - The name of the album from musicBrainz Api
      * @param {string?} musicBrainzId - The id of the album from musicBrainz Api
      * @param {Artist?} artist - The artist name
-     * @param {Message?} cover - The Telegram Message object for the album cover
+     * @param {String} cover - The Telegram Message object for the album cover
      * @param {Track[]} tracks - An array of Telegram Message objects representing audio tracks
      * @param {int} releaseDate - The album release date
      * @param {int} messageId - The id of the message from Telegram
