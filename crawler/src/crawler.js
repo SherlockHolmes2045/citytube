@@ -1,12 +1,12 @@
-const { createClient } = require("./client");
-const { log } = require("./logger");
-const Album = require("./album");
-const Artist = require("./artist");
-const Track = require("./track");
-const minioClient = require("./minioClient");
+const { createClient } = require("./service/client");
+const { log } = require("./utils/logger");
+const Album = require("./model/album");
+const Artist = require("./model/artist");
+const Track = require("./model/track");
+const minioClient = require("./service/minioClient");
 require("dotenv").config();
 const path = require("path");
-const {searchArtistMetadata,searchAlbumMetadata,searchSong} = require("./musicbrainz");
+const {searchArtistMetadata,searchAlbumMetadata,searchSong} = require("./service/musicbrainz");
 const {message} = require("telegram/client");
 
 (async () => {

@@ -3,7 +3,7 @@ const { StringSession } = require("telegram/sessions");
 const input = require("input");
 const fs = require("fs");
 const path = require("path");
-const {log} = require("./logger");
+const {log} = require("../utils/logger");
 const minioClient = require('./minioClient');
 require("dotenv").config();
 

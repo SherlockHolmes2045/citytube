@@ -28,7 +28,7 @@ async function searchArtistMetadata(artistName) {
     const sortNames = artist.aliases?.map((alias) => alias['sort-name']) || [];
     const names = artist.aliases?.map((alias) => alias.name) || [];
 
-    const Artist = require('./artist');
+    const Artist = require('../model/artist');
     return new Artist(
         artistName,
         artist.id,
