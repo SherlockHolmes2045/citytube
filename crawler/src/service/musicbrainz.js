@@ -22,7 +22,7 @@ async function searchArtistMetadata(artistName) {
     });
 
     const artist = artistSearch.artists.find((a) => a.country === 'JP') || artistSearch.artists[0];
-    if (!artist) return null;
+    if (!artist) return new Artist(artistName,null,null,null,null,[],[]);
 
     const genres = artist.tags?.map((tag) => tag.name) || [];
     const sortNames = artist.aliases?.map((alias) => alias['sort-name']) || [];

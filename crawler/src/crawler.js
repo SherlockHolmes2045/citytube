@@ -1,13 +1,13 @@
 const { createClient } = require("./service/client");
 const { log } = require("./utils/logger");
 const Album = require("./model/album");
-const Artist = require("./model/artist");
 const Track = require("./model/track");
 const minioClient = require("./service/minioClient");
 require("dotenv").config();
 const path = require("path");
 const {searchArtistMetadata,searchAlbumMetadata,searchSong} = require("./service/musicbrainz");
 const {message} = require("telegram/client");
+const {updateLastMessageId} = require("./service/crawlerProgressService");
 
 (async () => {
     const client = await createClient();
@@ -17,38 +17,49 @@ const {message} = require("telegram/client");
     const channel = await client.getEntity(channelName);
     const albums = [];
     let currentAlbum = new Album(null, null, null, null,null,null,null,[]);
-
+    let lastId = 0;
     for await (const message of client.iterMessages(channel, { reverse: true, limit: 35 })) {
-        if (!message.message && !message.media) continue;
+        lastId = message.id;
+        try{
+            if (!message.message && !message.media) continue;
 
-        const baseLog = `🟡 [${message.id}] ${message.date}`;
-        if (message.media) {
-            const mediaType = message.media.className;
+            const baseLog = `🟡 [${message.id}] ${message.date}`;
+            if (message.media) {
+                const mediaType = message.media.className;
 
-            if (mediaType === "MessageMediaPhoto") {
-                if (currentAlbum.tracks.length > 0) {
-                    albums.push(currentAlbum);
-                }
+                if (mediaType === "MessageMediaPhoto") {
+                    if (currentAlbum.tracks.length > 0) {
+                        albums.push(currentAlbum);
+                    }
                     currentAlbum = new Album(null, null, null, null,null,null,null,[]);
 
 
-                currentAlbum = await processPhotoMessage(message, currentAlbum, albums, client);
-            } else if (mediaType === "MessageMediaDocument") {
-                let track = await processDocumentMessage(message, currentAlbum, client);
-                currentAlbum.tracks.push(track);
+                    currentAlbum = await processPhotoMessage(message, currentAlbum, albums, client);
+                } else if (mediaType === "MessageMediaDocument") {
+                    if(currentAlbum.name != null && currentAlbum.cover != null){
+                        let track = await processDocumentMessage(message, currentAlbum, client);
+                        currentAlbum.tracks.push(track);
+                    }
+
+                } else {
+                    log(`${baseLog} - 📦 Unknown media type: ${mediaType}`);
+                }
             } else {
-                log(`${baseLog} - 📦 Unknown media type: ${mediaType}`);
+                currentAlbum = new Album(null, null, null, null,null,null,null,[]);
+                log(`${baseLog} - 📝 Text: ${message.message}`);
             }
-        } else {
-            currentAlbum = new Album(null, null, null, null,null,null,null,[]);
-            log(`${baseLog} - 📝 Text: ${message.message}`);
+        }catch(err){
+            log(`Error occurred while crawling ${err}`);
         }
+
     }
 
     const albumExist = albums.find(album => album.messageId === currentAlbum.messageId);
     if(!albumExist) {
         albums.push(currentAlbum);
     }
+
+    await updateLastMessageId(lastId,albums.length)
 
     log(`✅ Crawling complete`);
     console.log(albums);

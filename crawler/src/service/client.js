@@ -5,6 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const {log} = require("../utils/logger");
 const minioClient = require('./minioClient');
+const sequelize = require('./db');
 require("dotenv").config();
 
 const apiId = parseInt(process.env.TELEGRAM_API_ID);
@@ -36,11 +37,13 @@ async function createClient() {
         log("✅ New session created and saved.");
         await ensureBucket(process.env.AUDIO_BUCKET_NAME);
         await ensureBucket(process.env.COVER_BUCKET_NAME);
+        await sequelize.authenticate();
     } else {
         await client.connect();
         log("🔁 Reused saved session. Connection successful.");
         await ensureBucket(process.env.AUDIO_BUCKET_NAME);
         await ensureBucket(process.env.COVER_BUCKET_NAME);
+        await sequelize.authenticate();
     }
 
     return client;
