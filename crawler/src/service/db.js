@@ -12,4 +12,13 @@ const sequelize = new Sequelize(
     }
 );
 
+const Artist = require('../entity/Artist')(sequelize);
+const Album = require('../entity/Album')(sequelize);
+const Track = require('../entity/Track')(sequelize);
+
+// Associations
+Artist.associate({ Album });
+Album.associate({ Artist, Track });
+Track.associate({ Album });
+
 module.exports = sequelize;
