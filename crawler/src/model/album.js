@@ -12,7 +12,7 @@ class Album {
      * @param {int} messageId - The id of the message from Telegram
      * @param {String[]} genres - The id of the message from Telegram
      */
-    constructor(name, cover, releaseDate,messageId,musicBrainzName,musicBrainzId,artist = new Artist(''), tracks = [], genres= []) {
+    constructor(name, cover, releaseDate, messageId, musicBrainzName, musicBrainzId, artist = new Artist(''), tracks = [], genres = []) {
         this.name = name;
         this.artist = artist;
         this.cover = cover;     // This is a Telegram Message object containing the image

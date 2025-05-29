@@ -1,5 +1,5 @@
-const { TelegramClient } = require("telegram");
-const { StringSession } = require("telegram/sessions");
+const {TelegramClient} = require("telegram");
+const {StringSession} = require("telegram/sessions");
 const input = require("input");
 const fs = require("fs");
 const path = require("path");
@@ -24,35 +24,34 @@ async function createClient() {
         connectionRetries: 5,
     });
     try {
-    if (!savedSession) {
-        await client.start({
-            phoneNumber: async () => await input.text("📞 Phone number: "),
-            password: async () => await input.text("🔒 2FA password: "),
-            phoneCode: async () => await input.text("📲 Code from Telegram: "),
-            onError: (err) => console.log("❌ Error:", err),
-        });
+        if (!savedSession) {
+            await client.start({
+                phoneNumber: async () => await input.text("📞 Phone number: "),
+                password: async () => await input.text("🔒 2FA password: "),
+                phoneCode: async () => await input.text("📲 Code from Telegram: "),
+                onError: (err) => console.log("❌ Error:", err),
+            });
 
-        // Save session to file
-        fs.writeFileSync(SESSION_FILE, client.session.save(), "utf8");
-        log("✅ New session created and saved.");
-        await ensureBucket(process.env.AUDIO_BUCKET_NAME);
-        await ensureBucket(process.env.COVER_BUCKET_NAME);
-        await sequelize.authenticate();
-    } else {
-        await client.connect();
-        log("🔁 Reused saved session. Connection successful.");
-        await ensureBucket(process.env.AUDIO_BUCKET_NAME);
-        await ensureBucket(process.env.COVER_BUCKET_NAME);
-        await sequelize.authenticate();
-    }
+            // Save session to file
+            fs.writeFileSync(SESSION_FILE, client.session.save(), "utf8");
+            log("✅ New session created and saved.");
+            await ensureBucket(process.env.AUDIO_BUCKET_NAME);
+            await ensureBucket(process.env.COVER_BUCKET_NAME);
+            await sequelize.authenticate();
+        } else {
+            await client.connect();
+            log("🔁 Reused saved session. Connection successful.");
+            await ensureBucket(process.env.AUDIO_BUCKET_NAME);
+            await ensureBucket(process.env.COVER_BUCKET_NAME);
+            await sequelize.authenticate();
+        }
 
-    return client;
+        return client;
     } catch (err) {
         log(`❌ Connection failed: ${err.message}`);
         throw err;
     }
 }
-
 
 
 async function ensureBucket(bucketName) {
@@ -66,4 +65,4 @@ async function ensureBucket(bucketName) {
 }
 
 
-module.exports = { createClient };
+module.exports = {createClient};

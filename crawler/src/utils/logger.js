@@ -5,7 +5,7 @@ const logFile = path.join(__dirname, "./logs/crawler.log");
 
 // Ensure the logs folder exists
 if (!fs.existsSync(path.dirname(logFile))) {
-    fs.mkdirSync(path.dirname(logFile), { recursive: true });
+    fs.mkdirSync(path.dirname(logFile), {recursive: true});
 }
 
 function log(message) {
@@ -16,4 +16,4 @@ function log(message) {
     fs.appendFileSync(logFile, fullMessage + "\n", "utf8");
 }
 
-module.exports = { log };
+module.exports = {log};

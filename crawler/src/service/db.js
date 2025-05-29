@@ -1,4 +1,4 @@
-const { Sequelize } = require('sequelize');
+const {Sequelize} = require('sequelize');
 
 const sequelize = new Sequelize(
     process.env.PG_DATABASE,
@@ -17,8 +17,8 @@ const Album = require('../entity/Album')(sequelize);
 const Track = require('../entity/Track')(sequelize);
 
 // Associations
-Artist.associate({ Album });
-Album.associate({ Artist, Track });
-Track.associate({ Album });
+Artist.associate({Album});
+Album.associate({Artist, Track});
+Track.associate({Album});
 
-module.exports = {sequelize,Artist,Album,Track};
+module.exports = {sequelize, Artist, Album, Track};

@@ -8,7 +8,7 @@ class Artist {
      * @param {String?} gender - Artist gender
      * @param {String[]} genres - Artist music genres
      */
-    constructor(name, musicBrainzId,gender ,musicBrainzName,musicBrainzSortName, genres= [], aliases= []) {
+    constructor(name, musicBrainzId, gender, musicBrainzName, musicBrainzSortName, genres = [], aliases = []) {
         this.name = name;
         this.musicBrainzId = musicBrainzId;
         this.aliases = aliases;

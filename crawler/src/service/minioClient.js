@@ -1,4 +1,4 @@
-const { Client } = require('minio');
+const {Client} = require('minio');
 require("dotenv").config();
 
 

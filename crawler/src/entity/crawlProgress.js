@@ -1,11 +1,11 @@
-const { DataTypes } = require('sequelize');
+const {DataTypes} = require('sequelize');
 const sequelize = require('../service/db').sequelize;
 
 const CrawlProgress = sequelize.define('CrawlProgress', {
     id: {
         type: DataTypes.BIGINT,
         primaryKey: true,
-       autoIncrement: true,
+        autoIncrement: true,
     },
     lastMessageId: {
         type: DataTypes.BIGINT,

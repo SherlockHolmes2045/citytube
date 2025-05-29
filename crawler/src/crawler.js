@@ -1,11 +1,11 @@
-const { createClient } = require("./service/client");
-const { log } = require("./utils/logger");
+const {createClient} = require("./service/client");
+const {log} = require("./utils/logger");
 const Album = require("./model/album");
 const Track = require("./model/track");
 const minioClient = require("./service/minioClient");
 require("dotenv").config();
 const path = require("path");
-const {searchArtistMetadata,searchAlbumMetadata,searchSong} = require("./service/musicbrainz");
+const {searchArtistMetadata, searchAlbumMetadata, searchSong} = require("./service/musicbrainz");
 const {message} = require("telegram/client");
 const {updateLastMessageId, createArtistWithAlbumAndTracks, getLastMessageId} = require("./service/repository");
 
@@ -16,12 +16,32 @@ const {updateLastMessageId, createArtistWithAlbumAndTracks, getLastMessageId} = 
 
     const channel = await client.getEntity(channelName);
     const albums = [];
-    let currentAlbum = new Album(null, null, null, null,null,null,null,[]);
+    let currentAlbum = new Album(null, null, null, null, null, null, null, []);
     let lastId = 0;
     let lastCrawlMessageId = await getLastMessageId();
-    for await (const message of client.iterMessages(channel, { reverse: true, offsetId: lastCrawlMessageId })) {
+
+    client.on('disconnected', async () => {
+        log('🔌 Disconnected from Telegram. Saving the progress...');
+        if (currentAlbum.tracks.length > 0) {
+            await updateLastMessageId(currentAlbum.messageId, albums.length);
+        } else {
+            await updateLastMessageId(lastId, albums.length);
+        }
+    });
+
+    client.on('error', async (error) => {
+        log('Error in client: ', error);
+        if (currentAlbum.tracks.length > 0) {
+            await updateLastMessageId(currentAlbum.messageId, albums.length);
+        } else {
+            await updateLastMessageId(lastId, albums.length);
+        }
+    });
+
+
+    for await (const message of client.iterMessages(channel, {reverse: true, offsetId: lastCrawlMessageId})) {
         lastId = message.id;
-        try{
+        try {
             if (!message.message && !message.media) continue;
 
             const baseLog = `🟡 [${message.id}] ${message.date}`;
@@ -33,12 +53,12 @@ const {updateLastMessageId, createArtistWithAlbumAndTracks, getLastMessageId} = 
                         await createArtistWithAlbumAndTracks(currentAlbum);
                         albums.push(currentAlbum);
                     }
-                    currentAlbum = new Album(null, null, null, null,null,null,null,[]);
+                    currentAlbum = new Album(null, null, null, null, null, null, null, []);
 
 
                     currentAlbum = await processPhotoMessage(message, currentAlbum, albums, client);
                 } else if (mediaType === "MessageMediaDocument") {
-                    if(currentAlbum.name != null && currentAlbum.cover != null){
+                    if (currentAlbum.name != null && currentAlbum.cover != null) {
                         let track = await processDocumentMessage(message, currentAlbum, client);
                         currentAlbum.tracks.push(track);
                     }
@@ -47,14 +67,14 @@ const {updateLastMessageId, createArtistWithAlbumAndTracks, getLastMessageId} = 
                     log(`${baseLog} - 📦 Unknown media type: ${mediaType}`);
                 }
             } else {
-                currentAlbum = new Album(null, null, null, null,null,null,null,[]);
+                currentAlbum = new Album(null, null, null, null, null, null, null, []);
                 log(`${baseLog} - 📝 Text: ${message.message}`);
             }
-        }catch(err){
-            if(currentAlbum.tracks.length > 0){
-                await updateLastMessageId(currentAlbum.messageId,albums.length);
-            }else{
-                await updateLastMessageId(lastId,albums.length);
+        } catch (err) {
+            if (currentAlbum.tracks.length > 0) {
+                await updateLastMessageId(currentAlbum.messageId, albums.length);
+            } else {
+                await updateLastMessageId(lastId, albums.length);
             }
             log(`Error occurred while crawling ${err}`);
             break;
@@ -64,15 +84,15 @@ const {updateLastMessageId, createArtistWithAlbumAndTracks, getLastMessageId} = 
     }
 
     const albumExist = albums.find(album => album.messageId === currentAlbum.messageId);
-    if(!albumExist) {
+    if (!albumExist) {
         await createArtistWithAlbumAndTracks(currentAlbum);
         albums.push(currentAlbum);
     }
 
-    if(currentAlbum.tracks.length > 0){
-        await updateLastMessageId(currentAlbum.messageId,albums.length);
-    }else{
-        await updateLastMessageId(lastId,albums.length);
+    if (currentAlbum.tracks.length > 0) {
+        await updateLastMessageId(currentAlbum.messageId, albums.length);
+    } else {
+        await updateLastMessageId(lastId, albums.length);
     }
 
     log(`✅ Crawling complete ${albums}`);
