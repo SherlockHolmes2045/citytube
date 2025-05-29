@@ -21,4 +21,4 @@ Artist.associate({ Album });
 Album.associate({ Artist, Track });
 Track.associate({ Album });
 
-module.exports = sequelize;
+module.exports = {sequelize,Artist,Album,Track};

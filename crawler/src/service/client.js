@@ -5,7 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const {log} = require("../utils/logger");
 const minioClient = require('./minioClient');
-const sequelize = require('./db');
+const sequelize = require('./db').sequelize;
 require("dotenv").config();
 
 const apiId = parseInt(process.env.TELEGRAM_API_ID);

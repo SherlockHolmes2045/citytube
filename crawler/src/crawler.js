@@ -7,7 +7,7 @@ require("dotenv").config();
 const path = require("path");
 const {searchArtistMetadata,searchAlbumMetadata,searchSong} = require("./service/musicbrainz");
 const {message} = require("telegram/client");
-const {updateLastMessageId} = require("./service/crawlerProgressService");
+const {updateLastMessageId, createArtistWithAlbumAndTracks, getLastMessageId} = require("./service/repository");
 
 (async () => {
     const client = await createClient();
@@ -18,7 +18,8 @@ const {updateLastMessageId} = require("./service/crawlerProgressService");
     const albums = [];
     let currentAlbum = new Album(null, null, null, null,null,null,null,[]);
     let lastId = 0;
-    for await (const message of client.iterMessages(channel, { reverse: true, limit: 35 })) {
+    let lastCrawlMessageId = await getLastMessageId();
+    for await (const message of client.iterMessages(channel, { reverse: true, offsetId: lastCrawlMessageId })) {
         lastId = message.id;
         try{
             if (!message.message && !message.media) continue;
@@ -29,6 +30,7 @@ const {updateLastMessageId} = require("./service/crawlerProgressService");
 
                 if (mediaType === "MessageMediaPhoto") {
                     if (currentAlbum.tracks.length > 0) {
+                        await createArtistWithAlbumAndTracks(currentAlbum);
                         albums.push(currentAlbum);
                     }
                     currentAlbum = new Album(null, null, null, null,null,null,null,[]);
@@ -49,19 +51,31 @@ const {updateLastMessageId} = require("./service/crawlerProgressService");
                 log(`${baseLog} - 📝 Text: ${message.message}`);
             }
         }catch(err){
+            if(currentAlbum.tracks.length > 0){
+                await updateLastMessageId(currentAlbum.messageId,albums.length);
+            }else{
+                await updateLastMessageId(lastId,albums.length);
+            }
             log(`Error occurred while crawling ${err}`);
+            break;
+
         }
 
     }
 
     const albumExist = albums.find(album => album.messageId === currentAlbum.messageId);
     if(!albumExist) {
+        await createArtistWithAlbumAndTracks(currentAlbum);
         albums.push(currentAlbum);
     }
 
-    await updateLastMessageId(lastId,albums.length)
+    if(currentAlbum.tracks.length > 0){
+        await updateLastMessageId(currentAlbum.messageId,albums.length);
+    }else{
+        await updateLastMessageId(lastId,albums.length);
+    }
 
-    log(`✅ Crawling complete`);
+    log(`✅ Crawling complete ${albums}`);
     console.log(albums);
     await client.disconnect();
 })();
