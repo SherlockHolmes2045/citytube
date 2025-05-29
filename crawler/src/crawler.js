@@ -78,6 +78,7 @@ const {updateLastMessageId, createArtistWithAlbumAndTracks, getLastMessageId} = 
     log(`✅ Crawling complete ${albums}`);
     console.log(albums);
     await client.disconnect();
+    process.exit(0);
 })();
 
 async function processPhotoMessage(message, currentAlbum, albums, client) {
