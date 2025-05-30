@@ -175,16 +175,70 @@ This section will include steps on:
 
 ## 📦 Getting Started
 
-### 1. Set Up Database
 
-Use PostgreSQL or MongoDB and create a schema called `musicapp`.
+## 🔧 Prerequisites
+
+Before running the crawler, you need to set up the following:
+
+### 1. ✅ Telegram Application
+
+To interact with the Telegram API, you must create a Telegram application:
+
+* Go to [https://my.telegram.org](https://my.telegram.org)
+* Log in with your Telegram account
+* Navigate to **API Development Tools**
+* Create a new application:
+
+    * Choose an **App title** and **Short name**
+    * Copy your **API ID** and **API Hash** — you'll need to add them to your environment variables
+
+> 📌 These credentials are required to authenticate and use Telegram's client libraries.
+
+---
+
+### 2. ✅ MusicBrainz Account & Application
+
+To enrich album and track metadata, the crawler uses the [MusicBrainz API](https://musicbrainz.org/). To avoid rate limits and identify your requests, it’s recommended to register an application:
+
+* Sign up at [https://musicbrainz.org/register](https://musicbrainz.org/register)
+* Once registered, go to your profile > **Applications**
+* Create a new application:
+
+    * Provide a name and a website (can be anything relevant)
+    * Use the generated `User-Agent` info in your API requests (usually added in the headers)
+
+> ℹ️ If you are not authenticated, MusicBrainz limits the number of API requests you can make per second.
+
+---
+
+
+### 2. Set Up Database
+
+Use PostgreSQL and create a schema called `citytube`.
+
+Then run the api app to generate all the tables for the application
+
+```bash
+cd api
+./mvnw spring-boot:run
+```
 
 ### 2. Run Telegram Crawler
 
+Create an .env from the .env.example and fill with your credentials from the telegram client and musicbrainz api
+
+Launch the minio docker image for media storage
 ```bash
-cd telegram-crawler
+cd crawler
+docker-compose up
+```
+
+Then launch the crawler
+
+```bash
+cd crawler
 npm install
-node index.js
+npm run start
 ```
 
 > ⚠️ You'll need a Telegram API ID, hash, and phone login.
@@ -196,7 +250,6 @@ cd music-api-springboot
 ./mvnw spring-boot:run
 ```
 
-Make sure the DB config in `application.yml` matches your setup.
 
 ---
 
