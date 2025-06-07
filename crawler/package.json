@@ -12,6 +12,7 @@
   "description": "",
   "dependencies": {
     "dotenv": "^16.5.0",
+    "express": "^5.1.0",
     "input": "^1.0.1",
     "minio": "^8.0.5",
     "musicbrainz-api": "^0.25.0",

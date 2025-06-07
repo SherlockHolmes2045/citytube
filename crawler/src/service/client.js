@@ -41,9 +41,9 @@ async function createClient() {
         } else {
             await client.connect();
             log("🔁 Reused saved session. Connection successful.");
-            await ensureBucket(process.env.AUDIO_BUCKET_NAME);
-            await ensureBucket(process.env.COVER_BUCKET_NAME);
-            await sequelize.authenticate();
+            // await ensureBucket(process.env.AUDIO_BUCKET_NAME);
+            // await ensureBucket(process.env.COVER_BUCKET_NAME);
+            // await sequelize.authenticate();
         }
 
         return client;
