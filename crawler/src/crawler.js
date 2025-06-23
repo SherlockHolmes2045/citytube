@@ -6,7 +6,6 @@ const minioClient = require("./service/minioClient");
 require("dotenv").config();
 const path = require("path");
 const {searchArtistMetadata, searchAlbumMetadata, searchSong} = require("./service/musicbrainz");
-const {message} = require("telegram/client");
 const {updateLastMessageId, createArtistWithAlbumAndTracks, getLastMessageId} = require("./service/repository");
 
 (async () => {
@@ -44,29 +43,39 @@ const {updateLastMessageId, createArtistWithAlbumAndTracks, getLastMessageId} = 
         try {
             if (!message.message && !message.media) continue;
 
-            const baseLog = `🟡 [${message.id}] ${message.date}`;
+            const baseLog = `🟡 [${message.id}] ${message.date} ${message.message}`;
             if (message.media) {
                 const mediaType = message.media.className;
+                const mimeType = message.media.document?.mimeType;
+                if (mediaType === "MessageMediaPhoto" || mimeType?.startsWith('image/')) {
+                    if(currentAlbum.messageId +1 !== message.id){
+                        if (currentAlbum.tracks.length > 0) {
+                            await createArtistWithAlbumAndTracks(currentAlbum);
+                            albums.push(currentAlbum);
+                        }
+                        currentAlbum = new Album(null, null, null, null, null, null, null, []);
+                        currentAlbum = await processPhotoMessage(message, currentAlbum, albums, client);
 
-                if (mediaType === "MessageMediaPhoto") {
+                    }
+                } else if (mediaType === "MessageMediaDocument") {
+                    if (currentAlbum.name != null && currentAlbum.cover != null) {
+                        let track = await processDocumentMessage(message, currentAlbum);
+                        currentAlbum.tracks.push(track);
+                    }
+
+                } else {
                     if (currentAlbum.tracks.length > 0) {
                         await createArtistWithAlbumAndTracks(currentAlbum);
                         albums.push(currentAlbum);
                     }
                     currentAlbum = new Album(null, null, null, null, null, null, null, []);
-
-
-                    currentAlbum = await processPhotoMessage(message, currentAlbum, albums, client);
-                } else if (mediaType === "MessageMediaDocument") {
-                    if (currentAlbum.name != null && currentAlbum.cover != null) {
-                        let track = await processDocumentMessage(message, currentAlbum, client);
-                        currentAlbum.tracks.push(track);
-                    }
-
-                } else {
                     log(`${baseLog} - 📦 Unknown media type: ${mediaType}`);
                 }
             } else {
+                if (currentAlbum.tracks.length > 0) {
+                    await createArtistWithAlbumAndTracks(currentAlbum);
+                    albums.push(currentAlbum);
+                }
                 currentAlbum = new Album(null, null, null, null, null, null, null, []);
                 log(`${baseLog} - 📝 Text: ${message.message}`);
             }
@@ -76,6 +85,7 @@ const {updateLastMessageId, createArtistWithAlbumAndTracks, getLastMessageId} = 
             } else {
                 await updateLastMessageId(lastId, albums.length);
             }
+            console.error(err);
             log(`Error occurred while crawling ${err}`);
             break;
 
@@ -104,9 +114,12 @@ const {updateLastMessageId, createArtistWithAlbumAndTracks, getLastMessageId} = 
 async function processPhotoMessage(message, currentAlbum, albums, client) {
     const baseLog = `🟡 [${message.id}] ${message.date}`;
 
-
-    const [artistName, albumRaw] = message.message.split("-");
-    const albumName = albumRaw.trim();
+    const nameMessage = message.message.split('\n')[0].trim();
+    const [artistName, albumRaw] = nameMessage.split(/[‐‑‒–—―-]/);
+    let albumName = albumRaw.trim().split('\n')[0]?.trim();
+    if (nameMessage.split(/[‐‑‒–—―-]/).length > 2) {
+        albumName = albumName + "-" + nameMessage.split(/[‐‑‒–—―-]/).slice(2).join("");
+    }
     const match = albumName.match(/^(.*?)\s*\((\d{4})\)$/);
 
     currentAlbum.name = match ? match[1].trim() : albumName;
@@ -125,12 +138,13 @@ async function processPhotoMessage(message, currentAlbum, albums, client) {
     const buffer = await client.downloadMedia(message.media);
     const uploadResult = await uploadToMinio(process.env.COVER_BUCKET_NAME, `/covers/${message.id}.jpg`, buffer, 'image/jpeg');
     currentAlbum.cover = uploadResult.etag;
+    log(baseLog);
     log(`Saved cover to: ${uploadResult.etag}`);
 
     return currentAlbum;
 }
 
-async function processDocumentMessage(message, currentAlbum, client) {
+async function processDocumentMessage(message, currentAlbum) {
     const baseLog = `🟡 [${message.id}] ${message.date}`;
     const document = message.media.document;
     const mimeType = document.mimeType;
@@ -139,16 +153,20 @@ async function processDocumentMessage(message, currentAlbum, client) {
         return log(`${baseLog} - 📎 Other document: ${mimeType}`);
     }
 
-    const fileNameAttr = document.attributes.find(attr => attr.className === "DocumentAttributeFilename");
-    const title = message.message.split("-")[1].split('\n')[0].trim();
+
+    let title = "";
+
+    if (message.message && !message.message.startsWith("[Credits to ")) {
+
+        title = message.message.split(/[‐‑‒–—―-]/)[1].split('\n')[0].trim();
+    } else {
+        const fileAttr = document.attributes.find(attr => attr.className === "DocumentAttributeAudio");
+        title = fileAttr?.title;
+    }
+
     const songResult = await searchSong(title, currentAlbum.artist.musicBrainzName);
 
-    const extension = getExtension(fileNameAttr?.fileName, mimeType);
-    const buffer = await client.downloadMedia(message.media);
-    const uploadResult = await uploadToMinio(process.env.AUDIO_BUCKET_NAME, `/audios/${message.id}${extension}`, buffer, mimeType);
-
-    log(`Saved audio to: ${uploadResult.etag}`);
-    return new Track(title, songResult?.id, songResult?.title, uploadResult.etag, message.id.toString());
+    return new Track(title, songResult?.id, songResult?.title, message.id.toString());
 }
 
 function getExtension(fileName, mimeType) {
@@ -172,3 +190,7 @@ async function uploadToMinio(bucket, objectName, buffer, contentType) {
         'Content-Type': contentType,
     });
 }
+
+module.exports = {
+    getExtension
+};

@@ -24,9 +24,6 @@ public class Track extends BaseEntity{
     @Column(nullable = false)
     private String name;
 
-    @Column(nullable = false)
-    private String storageId;
-
     private String musicBrainzId;
 
     private String musicBrainzName;

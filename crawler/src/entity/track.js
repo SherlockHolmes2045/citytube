@@ -11,11 +11,6 @@ module.exports = (sequelize) => {
             type: DataTypes.STRING,
             allowNull: false,
         },
-        storageId: {
-            type: DataTypes.STRING,
-            allowNull: false,
-            field: 'storage_id',
-        },
         musicBrainzId: {
             type: DataTypes.STRING,
             allowNull: true,

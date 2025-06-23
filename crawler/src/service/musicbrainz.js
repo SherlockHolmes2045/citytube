@@ -1,6 +1,7 @@
 // musicbrainz.js
 
 
+const {log} = require("../utils/logger");
 const parameters = {
     appName: process.env.MUSICBRAINZ_APP_NAME,
     appVersion: process.env.MUSICBRAINZ_APP_VERSION,
@@ -76,10 +77,18 @@ async function searchAlbumMetadata(artistId, albumName) {
 async function searchSong(title, artistName) {
     const { MusicBrainzApi } = await import('musicbrainz-api');
     const mbApi = new MusicBrainzApi(parameters);
-    const result = await mbApi.search('recording', {
-        query: `recording:"${title}" AND artist:${artistName}`,
-    });
-    return result.recordings?.[0] || null;
+    try{
+
+        const result = await mbApi.search('recording', {
+            query: `recording:"${title}" AND artist:${artistName}`,
+        });
+        return result.recordings?.[0] || null;
+    } catch (err) {
+        console.error(err);
+        log('Error in musicbrainz api: ', err);
+        return null;
+    }
+
 }
 
 module.exports = {
